@@ -70,74 +70,12 @@ fun AppNavigation() {
 
 @Composable
 fun PlayScreen(navController: NavController) {
-    val context = LocalContext.current
-    var shakeCount by remember { mutableStateOf(0) }
-    var showImage by remember { mutableStateOf(false) }
-
-    val sensorManager = remember {
-        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    }
-
-    val accelerometer = remember {
-        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    }
-
-    val shakeThreshold = 11.0f
-
-    val sensorEventListener = object : SensorEventListener {
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-
-        override fun onSensorChanged(event: SensorEvent?) {
-            event?.let {
-                val x = it.values[0]
-                val y = it.values[1]
-                val z = it.values[2]
-
-                val acceleration = sqrt((x * x + y * y + z * z).toDouble()).toFloat()
-
-                if (acceleration > shakeThreshold) {
-                    shakeCount++
-                    if (shakeCount == 3) {
-                        showImage = true
-                        shakeCount = 0
-                    }
-                }
-            }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        sensorManager.registerListener(
-            sensorEventListener,
-            accelerometer,
-            SensorManager.SENSOR_DELAY_NORMAL
-        )
-
-        onDispose {
-            sensorManager.unregisterListener(sensorEventListener)
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+    Column (
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        if (showImage) {
-            Image(
-                painter = painterResource(id = R.drawable.pierre),
-                contentDescription = "Image après secousse",
-                modifier = Modifier.size(200.dp)
-            )
-            LaunchedEffect(showImage) {
-                delay(3000)
-                showImage = false
-            }
-        } else {
-            Text("Shake your phone 3 times to see your play !")
-        }
+    ){
+        Text("Page de jeu")
     }
 }
 
