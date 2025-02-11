@@ -54,40 +54,20 @@ fun AppNavigation() {
         composable("home") {
             HomeScreen(navController = navController)
         }
-        composable("form") {
-            FormScreen(navController = navController)
-        }
-        composable(
-            route = "display/{name}/{anniv}",
-            arguments = listOf(
-                navArgument("name") { defaultValue = "" },
-                navArgument("anniv") { defaultValue = "0" }
-            )
-        ) { backStackEntry ->
-            val name = backStackEntry.arguments?.getString("name") ?: ""
-            val anniv = backStackEntry.arguments?.getString("anniv")?.toIntOrNull() ?: 0
-            val age = AgeCalculator.calculAge(anniv)
-            DisplayScreen(navController = navController, name = name, age = age)
+        composable("playHome") {
+            PlayScreen(navController = navController)
         }
     }
 }
 
 @Composable
-fun DisplayScreen(navController: NavController, name: String, age: Int) {
-    Column(
+fun PlayScreen(navController: NavController){
+    Column (
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(text = "Affichage du formulaire", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(text = name, style = MaterialTheme.typography.bodyLarge)
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(text = "Vous avez $age ans !", style = MaterialTheme.typography.bodyLarge)
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = { navController.popBackStack() }) {
-            Text(text = "Retour")
-        }
+    ){
+
     }
 }
 
@@ -98,50 +78,11 @@ fun HomeScreen(navController: NavController){
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ){
-        Text(text = "Bienvenue dans ma première application compose navigation",
+        Text(text = "ShiFuMi",
             style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = { navController.navigate("form") }) {
-            Text(text = "Accéder au formulaire")
-        }
-    }
-}
-
-@Composable
-fun FormScreen(navController : NavController){
-    var name by remember { mutableStateOf("") }
-    var anniv by remember { mutableStateOf("") }
-    Column (
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ){
-        Text(text = "Page du formulaire", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(24.dp))
-        TextField(
-            value = name,
-            onValueChange = { newText -> name = newText },
-            label = { Text("Entrez votre nom") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        )
-        TextField(
-            value = anniv,
-            onValueChange = { newText ->
-                anniv = newText
-            },
-            label = { Text("Saisissez votre année de naissance") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-        )
-        Button({ navController.navigate("display/$name/$anniv") }
-        ) {
-            Text(text = "Valider")
-        }
-        Button(
-            onClick = { navController.popBackStack() }
-        ) {
-            Text(text = "Retour")
+        Button(onClick = { navController.navigate("playHome") }) {
+            Text(text = "Play")
         }
     }
 }
