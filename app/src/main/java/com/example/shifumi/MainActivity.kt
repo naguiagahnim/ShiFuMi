@@ -22,7 +22,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,7 +36,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.shifumi.ui.theme.ShifumiTheme
-import kotlinx.coroutines.delay
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -65,6 +63,9 @@ fun AppNavigation() {
         }
         composable("playHome") {
             PlayScreen(navController = navController)
+        }
+        composable("playBotHome") {
+            PlayBotScreen(navController = navController)
         }
     }
 }
@@ -145,6 +146,89 @@ fun PlayScreen(navController: NavController) {
     }
 }
 
+@Composable
+fun PlayBotScreen(navController: NavController) {
+    val imageList = listOf(
+        R.drawable.pierre,
+        R.drawable.feuille,
+        R.drawable.ciseaux
+    )
+
+    var randomImage by remember { mutableStateOf(imageList[Random.nextInt(imageList.size)]) }
+    var randomImageBot by remember { mutableStateOf(imageList[Random.nextInt(imageList.size)]) }
+    var shakeCount by remember { mutableStateOf(0) }
+    val context = LocalContext.current
+    val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+    DisposableEffect(Unit) {
+        val sensorEventListener = object : SensorEventListener {
+            private var lastTime: Long = 0
+            private var lastX: Float = 0f
+            private var lastY: Float = 0f
+            private var lastZ: Float = 0f
+            private val shakeThreshold = 800
+
+            override fun onSensorChanged(event: SensorEvent) {
+                val curTime = System.currentTimeMillis()
+                if ((curTime - lastTime) > 100) {
+                    val diffTime = curTime - lastTime
+                    lastTime = curTime
+
+                    val x = event.values[0]
+                    val y = event.values[1]
+                    val z = event.values[2]
+
+                    val speed = sqrt((x - lastX) * (x - lastX) + (y - lastY) * (y - lastY) + (z - lastZ) * (z - lastZ)) / diffTime * 10000
+
+                    if (speed > shakeThreshold) {
+                        shakeCount++
+                        if (shakeCount == 3) {
+                            randomImage = imageList.random()
+                            randomImageBot = imageList.random()
+                            shakeCount = 0
+                        }
+                    }
+
+                    lastX = x
+                    lastY = y
+                    lastZ = z
+                }
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+
+        sensorManager.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)
+
+        onDispose {
+            sensorManager.unregisterListener(sensorEventListener)
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Page de jeu")
+        Image(
+            painter = painterResource(id = randomImage),
+            contentDescription = "Image aléatoire",
+            modifier = Modifier.size(200.dp)
+        )
+        Image(
+            painter = painterResource(id = randomImageBot),
+            contentDescription = "Image aléatoire bot",
+            modifier = Modifier.size(200.dp)
+        )
+        Text("Secouez le téléphone 3 fois pour jouer")
+        Button(onClick = { navController.navigate("home") }) {
+            Text(text = "Home")
+        }
+    }
+}
+
 
 @Composable
 fun HomeScreen(navController: NavController){
@@ -158,6 +242,9 @@ fun HomeScreen(navController: NavController){
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = { navController.navigate("playHome") }) {
             Text(text = "Play")
+        }
+        Button(onClick = { navController.navigate("playBotHome") }) {
+            Text(text = "Play against a bot")
         }
     }
 }
