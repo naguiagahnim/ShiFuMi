@@ -5,7 +5,9 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.media.MediaPlayer
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,12 +30,15 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.DisposableEffectResult
 import androidx.compose.runtime.DisposableEffectScope
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -42,7 +47,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.shifumi.ui.theme.ShifumiTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import nl.dionsegijn.konfetti.compose.KonfettiView
+import nl.dionsegijn.konfetti.core.Party
+import nl.dionsegijn.konfetti.core.Position
+import nl.dionsegijn.konfetti.core.emitter.Emitter
+import java.util.concurrent.TimeUnit
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -78,20 +91,46 @@ fun AppNavigation() {
 }
 
 @Composable
-fun PlayScreen(navController: NavController) {
-    val imageList = listOf(
-        R.drawable.pierre,
-        R.drawable.feuille,
-        R.drawable.ciseaux
-    )
+fun ConfettiEffect(show: Boolean) {
+    if (show) {
+        KonfettiView(
+            modifier = Modifier.fillMaxSize(),
+            parties = listOf(
+                Party(
+                    speed = 30f,
+                    maxSpeed = 50f,
+                    damping = 0.9f,
+                    spread = 360,
+                    colors = listOf(0xff33e0, 0xff3333, 0xbb33ff, 0xf9ff33, 0xffac33),
+                    emitter = Emitter(duration = 3, TimeUnit.SECONDS).perSecond(100),
+                    position = Position.Relative(0.5, 0.0)
+                )
+            )
+        )
+    }
+}
 
+@Composable
+fun PlayScreen(navController: NavController) {
+    val context = LocalContext.current
     var playerChoice by remember { mutableStateOf<Int?>(null) }
     var botChoice by remember { mutableStateOf<Int?>(null) }
     var resultMessage by remember { mutableStateOf("") }
     var countdown by remember { mutableStateOf(0) }
+    var consecutiveWins by remember { mutableStateOf(0) }
+    var highScore by remember { mutableStateOf(0) }
+    val highScoreFlow = context.highScoreFlow.collectAsState(initial = 0)
+    var showConfetti by remember { mutableStateOf(false) }
+    var choiceCounter by remember { mutableStateOf(0) }
+
+    LaunchedEffect(highScoreFlow.value) {
+        highScore = highScoreFlow.value
+    }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -107,7 +146,7 @@ fun PlayScreen(navController: NavController) {
             horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier.fillMaxWidth()
         ) {
-            imageList.forEach { imageRes ->
+            listOf(R.drawable.pierre, R.drawable.feuille, R.drawable.ciseaux).forEach { imageRes ->
                 Image(
                     painter = painterResource(id = imageRes),
                     contentDescription = null,
@@ -117,6 +156,7 @@ fun PlayScreen(navController: NavController) {
                         .clickable {
                             playerChoice = imageRes
                             countdown = 3
+                            choiceCounter++
                         }
                 )
             }
@@ -130,6 +170,8 @@ fun PlayScreen(navController: NavController) {
             Text("Votre choix : ${getChoiceName(playerChoice)}")
             Text("Choix du bot : ${getChoiceName(botChoice)}")
             Text(resultMessage)
+            Text("Victoires consécutives : $consecutiveWins")
+            Text("Meilleur score : $highScore")
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -139,9 +181,11 @@ fun PlayScreen(navController: NavController) {
         }
     }
 
-    LaunchedEffect(playerChoice) {
+    LaunchedEffect(choiceCounter) {
         if (playerChoice != null) {
-            startCountdown(imageList, playerChoice!!,
+            startCountdown(
+                listOf(R.drawable.pierre, R.drawable.feuille, R.drawable.ciseaux),
+                playerChoice!!,
                 onCountdownTick = { value ->
                     countdown = value
                 },
@@ -149,12 +193,44 @@ fun PlayScreen(navController: NavController) {
                     botChoice = botResult
                     resultMessage = result
                     countdown = 0
+
+                    if (result == "Vous avez gagné !") {
+                        consecutiveWins++
+                        if (consecutiveWins > highScore) {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                context.updateHighScore(consecutiveWins)
+                            }
+                            highScore = consecutiveWins
+                            triggerWowEffect(context)
+                            showConfetti = true
+                        }
+                    } else {
+                        consecutiveWins = 0
+                    }
                 }
             )
         }
     }
 
+    LaunchedEffect(showConfetti) {
+        if (showConfetti) {
+            delay(2000)
+            showConfetti = false
+        }
+    }
+
+    ConfettiEffect(show = showConfetti)
 }
+
+
+
+fun triggerWowEffect(context: Context) {
+    val mediaPlayer = MediaPlayer.create(context, R.raw.victory_sound)
+    mediaPlayer.start()
+
+    Toast.makeText(context, "Nouveau record battu !", Toast.LENGTH_LONG).show()
+}
+
 
 suspend fun startCountdown(
     imageList: List<Int>,
@@ -215,8 +291,58 @@ fun RandomBotScreen(navController: NavController) {
     val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
+    val updatedRandomImage = rememberUpdatedState(randomImage)
+    val updatedRandomImageBot = rememberUpdatedState(randomImageBot)
+    val updatedShakeCount = rememberUpdatedState(shakeCount)
+
     DisposableEffect(Unit) {
-        disposableEffectResult(shakeCount, randomImage, randomImageBot, imageList, sensorManager, accelerometer)
+        val sensorEventListener = object : SensorEventListener {
+            private var lastTime: Long = 0
+            private var lastX: Float = 0f
+            private var lastY: Float = 0f
+            private var lastZ: Float = 0f
+            private val shakeThreshold = 800
+
+            override fun onSensorChanged(event: SensorEvent) {
+                val curTime = System.currentTimeMillis()
+                if ((curTime - lastTime) > 100) {
+                    val diffTime = curTime - lastTime
+                    lastTime = curTime
+
+                    val x = event.values[0]
+                    val y = event.values[1]
+                    val z = event.values[2]
+
+                    val speed =
+                        sqrt((x - lastX) * (x - lastX) + (y - lastY) * (y - lastY) + (z - lastZ) * (z - lastZ)) / diffTime * 10000
+
+                    if (speed > shakeThreshold) {
+                        shakeCount++
+                        if (shakeCount == 3) {
+                            randomImage = imageList.random()
+                            randomImageBot = imageList.random()
+                            shakeCount = 0
+                        }
+                    }
+
+                    lastX = x
+                    lastY = y
+                    lastZ = z
+                }
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+
+        sensorManager.registerListener(
+            sensorEventListener,
+            accelerometer,
+            SensorManager.SENSOR_DELAY_NORMAL
+        )
+
+        onDispose {
+            sensorManager.unregisterListener(sensorEventListener)
+        }
     }
 
     Column(
@@ -244,66 +370,6 @@ fun RandomBotScreen(navController: NavController) {
         Button(onClick = { navController.navigate("home") }) {
             Text(text = "Accueil")
         }
-    }
-}
-
-private fun DisposableEffectScope.disposableEffectResult(
-    shakeCount: Int,
-    randomImage: Int?,
-    randomImageBot: Int?,
-    imageList: List<Int>,
-    sensorManager: SensorManager,
-    accelerometer: Sensor?
-): DisposableEffectResult {
-    var shakeCount1 = shakeCount
-    var randomImage1 = randomImage
-    var randomImageBot1 = randomImageBot
-    val sensorEventListener = object : SensorEventListener {
-        private var lastTime: Long = 0
-        private var lastX: Float = 0f
-        private var lastY: Float = 0f
-        private var lastZ: Float = 0f
-        private val shakeThreshold = 800
-
-        override fun onSensorChanged(event: SensorEvent) {
-            val curTime = System.currentTimeMillis()
-            if ((curTime - lastTime) > 100) {
-                val diffTime = curTime - lastTime
-                lastTime = curTime
-
-                val x = event.values[0]
-                val y = event.values[1]
-                val z = event.values[2]
-
-                val speed =
-                    sqrt((x - lastX) * (x - lastX) + (y - lastY) * (y - lastY) + (z - lastZ) * (z - lastZ)) / diffTime * 10000
-
-                if (speed > shakeThreshold) {
-                    shakeCount1++
-                    if (shakeCount1 == 3) {
-                        randomImage1 = imageList.random()
-                        randomImageBot1 = imageList.random()
-                        shakeCount1 = 0
-                    }
-                }
-
-                lastX = x
-                lastY = y
-                lastZ = z
-            }
-        }
-
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-    }
-
-    sensorManager.registerListener(
-        sensorEventListener,
-        accelerometer,
-        SensorManager.SENSOR_DELAY_NORMAL
-    )
-
-    return onDispose {
-        sensorManager.unregisterListener(sensorEventListener)
     }
 }
 
