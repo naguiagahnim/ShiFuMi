@@ -1,4 +1,4 @@
-#Projet de pierre-feuille-ciseaux réalisé dans le cadre de mes études
+# Projet de pierre-feuille-ciseaux en Kotlin réalisé dans le cadre de mes études
 
 ## Stratégie du Bot : Analyse et Adaptation
 
