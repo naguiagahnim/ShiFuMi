@@ -116,10 +116,7 @@ fun PlayScreen(navController: NavController) {
                         .padding(8.dp)
                         .clickable {
                             playerChoice = imageRes
-                            startCountdown(imageList, playerChoice!!) { botResult, result ->
-                                botChoice = botResult
-                                resultMessage = result
-                            }
+                            countdown = 3
                         }
                 )
             }
@@ -141,29 +138,44 @@ fun PlayScreen(navController: NavController) {
             Text(text = "Accueil")
         }
     }
+
+    LaunchedEffect(playerChoice) {
+        if (playerChoice != null) {
+            startCountdown(imageList, playerChoice!!,
+                onCountdownTick = { value ->
+                    countdown = value
+                },
+                onFinish = { botResult, result ->
+                    botChoice = botResult
+                    resultMessage = result
+                    countdown = 0
+                }
+            )
+        }
+    }
+
 }
 
-@Composable
-fun startCountdown(
+suspend fun startCountdown(
     imageList: List<Int>,
     playerChoice: Int,
+    onCountdownTick: (Int) -> Unit,
     onFinish: (Int, String) -> Unit
 ) {
-    var countdownValue by remember { mutableStateOf(3) }
+    var countdownValue = 3
 
-    LaunchedEffect(countdownValue) {
-        while (countdownValue > 0) {
-            kotlinx.coroutines.delay(1000L)
-            countdownValue--
-        }
-
-        val botChoiceResult = calculateBotChoice(imageList)
-        val resultMessageResult =
-            determineResult(playerChoice, botChoiceResult)
-
-        onFinish(botChoiceResult, resultMessageResult)
+    while (countdownValue > 0) {
+        onCountdownTick(countdownValue)
+        delay(1000L)
+        countdownValue--
     }
+
+    val botChoiceResult = calculateBotChoice(imageList)
+    val resultMessageResult = determineResult(playerChoice, botChoiceResult)
+
+    onFinish(botChoiceResult, resultMessageResult)
 }
+
 
 fun calculateBotChoice(imageList: List<Int>): Int {
     return imageList.random()
@@ -187,8 +199,6 @@ fun getChoiceName(choice: Int?): String {
         else -> "Aucun"
     }
 }
-
-
 
 @Composable
 fun RandomBotScreen(navController: NavController) {
@@ -296,7 +306,6 @@ private fun DisposableEffectScope.disposableEffectResult(
         sensorManager.unregisterListener(sensorEventListener)
     }
 }
-
 
 @Composable
 fun HomeScreen(navController: NavController){
