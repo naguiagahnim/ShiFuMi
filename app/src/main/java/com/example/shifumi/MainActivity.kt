@@ -87,6 +87,9 @@ fun AppNavigation() {
         composable("playRandom") {
             RandomBotScreen(navController = navController)
         }
+        composable ("playMulti") {
+            PlayMultiplayer(navController = navController)
+        }
     }
 }
 
@@ -389,5 +392,13 @@ fun HomeScreen(navController: NavController){
         Button(onClick = { navController.navigate("playRandom") }) {
             Text(text = "Jouer (mode aléatoire)")
         }
+        Button(onClick = { navController.navigate("playMulti") }) {
+            Text(text = "Jouer en multijoueur")
+        }
     }
+}
+
+@Composable
+fun PlayMultiplayer(navController: NavController) {
+
 }
