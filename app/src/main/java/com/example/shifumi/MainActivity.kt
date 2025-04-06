@@ -1,6 +1,11 @@
 package com.example.shifumi
 
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -55,6 +60,8 @@ import nl.dionsegijn.konfetti.compose.KonfettiView
 import nl.dionsegijn.konfetti.core.Party
 import nl.dionsegijn.konfetti.core.Position
 import nl.dionsegijn.konfetti.core.emitter.Emitter
+import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -87,9 +94,11 @@ fun AppNavigation() {
         composable("playRandom") {
             RandomBotScreen(navController = navController)
         }
-        composable ("playMulti") {
-            PlayMultiplayer(navController = navController)
+        /*
+        composable("bluetooth") {
+            BluetoothScreen(navController = navController)
         }
+*/
     }
 }
 
@@ -392,13 +401,121 @@ fun HomeScreen(navController: NavController){
         Button(onClick = { navController.navigate("playRandom") }) {
             Text(text = "Jouer (mode aléatoire)")
         }
-        Button(onClick = { navController.navigate("playMulti") }) {
-            Text(text = "Jouer en multijoueur")
+        Button(onClick = { navController.navigate("bluetooth") }) {
+            Text("Multijoueur Bluetooth")
+        }
+
+    }
+}
+
+
+@SuppressLint("ServiceCast", "MissingPermission")
+@Composable
+fun BluetoothScreen(navController: NavController) {
+    val context = LocalContext.current
+    val bluetoothAdapter = remember {
+        (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+    }
+    var isDiscoverable by remember { mutableStateOf(false) }
+    var discoveredDevices by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
+    var connectedDevice by remember { mutableStateOf<BluetoothDevice?>(null) }
+    var gameChoice by remember { mutableStateOf<Int?>(null) }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+
+        if (connectedDevice == null) {
+            Button(onClick = {
+                if (!bluetoothAdapter.isEnabled) {
+                    val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                    context.startActivity(enableBtIntent)
+                }
+            }) {
+                Text("Activer Bluetooth")
+            }
+
+            Button(onClick = {
+                val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+                context.startActivity(discoverableIntent)
+                isDiscoverable = true
+            }) {
+                Text("Devenir visible")
+            }
+
+            Button(onClick = {
+                bluetoothAdapter.startDiscovery()
+            }) {
+                Text("Rechercher appareils")
+            }
+
+            discoveredDevices.forEach { device ->
+                Button(
+                    onClick = { connectToDevice(device) },
+                    modifier = Modifier.padding(4.dp)
+                ) {
+                    Text(device.name ?: "Appareil inconnu")
+                }
+            }
+        }
+
+        else {
+            Text("Connecté à ${connectedDevice?.name}")
+
+            Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                listOf(R.drawable.pierre, R.drawable.feuille, R.drawable.ciseaux).forEach { imageRes ->
+                    Image(
+                        painter = painterResource(id = imageRes),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clickable {
+                                gameChoice = imageRes
+                                sendChoice(imageRes, connectedDevice!!)
+                            }
+                    )
+                }
+            }
+        }
+
+        Button(onClick = { navController.popBackStack() }) {
+            Text("Retour")
         }
     }
 }
 
-@Composable
-fun PlayMultiplayer(navController: NavController) {
+val UUID_SHI_FU_MI = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
+@SuppressLint("MissingPermission")
+private fun connectToDevice(device: BluetoothDevice) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val socket = device.createRfcommSocketToServiceRecord(UUID_SHI_FU_MI)
+            socket.connect()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+    }
 }
+
+@SuppressLint("MissingPermission")
+private fun sendChoice(choice: Int, device: BluetoothDevice) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val socket = device.createRfcommSocketToServiceRecord(UUID_SHI_FU_MI)
+            socket.connect()
+            val outputStream = socket.outputStream
+            outputStream.write(choice.toString().toByteArray())
+            socket.close()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+    }
+}
+
