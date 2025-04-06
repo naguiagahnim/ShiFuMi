@@ -1,5 +1,9 @@
 # Projet de pierre-feuille-ciseaux en Kotlin réalisé dans le cadre de mes études
 
+## NOTE
+
+Il est important de préciser que nous n'avons pas pu finir le multijoueur.
+
 ## Stratégie du Bot : Analyse et Adaptation
 
 Le bot examine attentivement les décisions antérieures du joueur. Il maintient un registre des sélections passées dans une liste nommée `playerHistory`. Cette liste sert de base pour identifier les schémas et les préférences du joueur.
